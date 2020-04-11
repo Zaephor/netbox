@@ -10,7 +10,8 @@ apk add --no-cache \
 apk add --no-cache --virtual .build-dependencies build-base g++ make
 
 git clone --single-branch --branch ${RELEASE} --depth 1 https://github.com/netbox-community/netbox.git /app
-for x in 'napalm' 'django-storages' 'django-auth-ldap': do
+
+for x in 'napalm' 'django-storages' 'django-auth-ldap'; do
 	echo "${x}" >> /app/local_requirements.txt
 done
 

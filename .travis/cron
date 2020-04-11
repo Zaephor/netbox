@@ -8,7 +8,7 @@ REMOTE="origin"
 BRANCH="master"
 
 if [[ "${CI}" == "true" && "${TRAVIS}" == "true" ]]; then
-	echo "[***] ${STAGE} - Configuring git for commit"
+	echo "[***] Configuring git for commit"
 	git checkout master
 	git config user.email "travis@travis-ci.org"
 	git config user.name "Travis CI"
@@ -22,12 +22,14 @@ if [[ "${CI}" == "true" && "${TRAVIS}" == "true" ]]; then
 fi
 
 # LATEST
+echo "[***] Determining latest build"
 git ls-remote --tags ${REMOTE_REPO} | awk -F '/' '!/{}/{print $NF}' | grep -v '\(^[0-9]\|-[a-Z]\)' | sort -V | tail -n1 > LATEST
 
 # CURRENT
 ADDED=0
 VERSION=""
 touch VERSIONS
+echo "[***] Determining next build in order"
 for x in $(git ls-remote --tags ${REMOTE_REPO} | awk -F '/' '!/{}/{print $NF}' | grep -v '\(^[0-9]\|-[a-Z]\)' | sort -V); do
 	if ! grep -q "^${x}$" VERSIONS; then
 		if [[ ${ADDED} -eq 0 ]]; then
@@ -43,6 +45,7 @@ done
 # Push to github
 if [[ "${CI}" == "true" && "${TRAVIS}" == "true" ]]; then
 if [[ ${ADDED} -eq 1 ]]; then
+	echo "[***] Pushing changes back to repo"
 	git add VERSIONS LATEST
 	git commit -m "netbox: ${VERSION}"
 	git push --quiet -u "${REMOTE}" "${BRANCH}"

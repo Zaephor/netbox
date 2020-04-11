@@ -1,2 +1,3 @@
 #!/bin/bash
+echo "[***] Enabling docker experimental"
 echo '{"experimental":true}' | sudo tee /etc/docker/daemon.json

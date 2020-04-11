@@ -1,16 +1,20 @@
 #!/bin/bash
+echo "[***] Logging into Docker hub"
 docker login -u "${DOCKER_USER}" -p "${DOCKER_PASSWORD}" &> /dev/null
 export DOCKER_REPO=index.docker.io/${DOCKER_ORG}/${CONTAINER}
-export DOCKERFILE_PATH="${CONTAINER}.Dockerfile"
+export DOCKERFILE_PATH="Dockerfile"
 
 DOCKER_ARGS=()
 DOCKER_ARGS+=( "buildx" "build" "--push" )
 
+echo "[***] Creating buildx context"
 docker buildx create --name "${CONTAINER}"
 docker buildx use "${CONTAINER}"
+echo "[***] Bootstrapping supported platforms in buildx context"
 docker buildx inspect --bootstrap
 docker buildx ls
 
+echo "[***] Checking what was already pushed to docker for reference"
 docker manifest inspect "${DOCKER_ORG}/${CONTAINER}"
 docker buildx imagetools inspect "${DOCKER_ORG}/${CONTAINER}"
 
@@ -18,13 +22,16 @@ DOCKER_TAGS=()
 LATEST_VERSION=""
 THIS_VERSION=""
 if [[ -e "LATEST" && -e "VERSIONS" ]]; then
+	echo "[***] Determining current build version for tagging"
 	LATEST_VERSION=$(cat "LATEST")
 	THIS_VERSION=$(tail -n1 "VERSIONS")
+	echo "[***] Queued ${THIS_VERSION} for tagging"
 	DOCKER_TAGS+=( "-t" "${DOCKER_ORG}/${CONTAINER}:${THIS_VERSION}" )
 	SUBTAG=${THIS_VERSION}
 	while [[ -n "${SUBTAG//[^.-]}" ]]; do
 		LATEST_MATCH=$(awk "/${SUBTAG%.**}/ {a=\$0} END{print a}" "VERSIONS")
 		if [[ "${LATEST_MATCH}" == "${THIS_VERSION}" ]]; then
+			echo "[***] Queued ${SUBTAG%.**} for tagging"
 			DOCKER_TAGS+=( "-t" "${DOCKER_ORG}/${CONTAINER}:${SUBTAG%.**}" )
 		fi
 		SUBTAG=$(echo "${SUBTAG}" | awk -F'[.-]' '{gsub("[.-]"$NF,"");print}')
@@ -32,8 +39,10 @@ if [[ -e "LATEST" && -e "VERSIONS" ]]; then
 fi
 
 if [[ -n "${LATEST_VERSION}" && -n "${THIS_VERSION}" && "${LATEST_VERSION}" == "${THIS_VERSION}" ]]; then
+	echo "[***] Queued latest for tagging"
 	DOCKER_TAGS+=( "-t" "${DOCKER_ORG}/${CONTAINER}:latest" )
 else
+	echo "[***] Queued debugfor tagging"
 	DOCKER_TAGS+=( "-t" "${DOCKER_ORG}/${CONTAINER}:debug" )
 fi
 if [[ -n "${THIS_VERSION}" ]]; then
@@ -62,4 +71,5 @@ if [[ -z "${PLATFORMS}" ]]; then
 fi
 DOCKER_ARGS+=( "--platform" "${PLATFORMS}" )
 DOCKER_ARGS+=( "-f" "${DOCKERFILE_PATH}" "." )
+echo "[***] Starting build"
 docker ${DOCKER_ARGS[@]}

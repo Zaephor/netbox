@@ -1,8 +1,11 @@
 #!/bin/bash
+echo "[***] Excessively enabling Docker experimental"
 export DOCKER_CLI_EXPERIMENTAL=enabled
 
+echo "[***] Logging build host OS info"
 cat /etc/*-release
 
+echo "[***] Adding deps for multi-arch builds"
 docker run --rm --privileged multiarch/qemu-user-static:register --reset
 docker run --privileged linuxkit/binfmt:v0.7
 echo
