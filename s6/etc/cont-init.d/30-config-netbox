@@ -1,0 +1,64 @@
+#!/usr/bin/with-contenv bash
+
+if [[ ! -e /config/configuration.py ]]; then
+	cp /setup/configuration.envvars.py /config/configuration.py
+fi
+if [[ ! -L /app/netbox/netbox/configuration.py ]]; then
+	if [[ -e /app/netbox/netbox/configuration.py ]]; then
+		rm /app/netbox/netbox/configuration.py
+	fi
+	ln -s /config/configuration.py /app/netbox/netbox/configuration.py
+fi
+
+if [[ -n "${LDAP_ENABLED}" || ( -n "${LDAP_SERVER_URI}" && -n "${LDAP_BIND_DN}" && -n "${LDAP_BIND_PASSWORD}" ) ]]; then
+	if [[ ! -e /config/ldap_config.py ]]; then
+		cp /setup/ldap_config.envvars.py /config/ldap_config.py
+	fi
+	if [[ ! -L /app/netbox/netbox/ldap_config.py ]]; then
+		if [[ -e /app/netbox/netbox/ldap_config.py ]]; then
+			rm /app/netbox/netbox/ldap_config.py
+		fi
+		ln -s /config/ldap_config.py /app/netbox/netbox/ldap_config.py
+	fi
+fi
+
+APPVER=$(cat /app/.version)
+CFGVER=0
+if [[ -e /config/.version ]]; then
+	CFGVER=$(cat /config/.version)
+fi
+echo "APPVER: ${APPVER}"
+echo "CFGVER: ${CFGVER}"
+
+cd /app
+
+## TODO: Decide If I should restrict some of this to ONLY if versions changed?
+# DB Migrations
+python3 netbox/manage.py migrate
+# Statics
+python3 netbox/manage.py collectstatic --no-input
+# Stale
+python3 netbox/manage.py remove_stale_contenttypes --no-input
+# Sessions
+python3 netbox/manage.py clearsessions
+# Clear cache
+python3 netbox/manage.py invalidate all
+
+# Superuser
+if [[ -n "${SUPERUSER_NAME}" && -n "${SUPERUSER_EMAIL}" && "${SUPERUSER_PASSWORD}" ]]; then
+	echo "Creating superuser ${SUPERUSER_NAME}/${SUPERUSER_EMAIL}"
+
+	python3 netbox/manage.py shell --interface python << END
+from django.contrib.auth.models import User
+from users.models import Token
+if not User.objects.filter(username='${SUPERUSER_NAME}'):
+    u=User.objects.create_superuser('${SUPERUSER_NAME}', '${SUPERUSER_EMAIL}', '${SUPERUSER_PASSWORD}')
+END
+fi
+
+cp /app/.version /config/.version
+
+chown -R abc:abc \
+	/app
+chown -R abc:abc \
+	/config

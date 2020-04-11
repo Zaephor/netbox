@@ -1,0 +1,50 @@
+#!/bin/bash
+if [[ "$1" != "before_install" ]]; then
+	echo "Only run during before_install phase"
+	exit 0
+fi
+REMOTE_REPO=https://github.com/netbox-community/netbox.git
+REMOTE="origin"
+BRANCH="master"
+
+if [[ "${CI}" == "true" && "${TRAVIS}" == "true" ]]; then
+	echo "[***] ${STAGE} - Configuring git for commit"
+	git checkout master
+	git config user.email "travis@travis-ci.org"
+	git config user.name "Travis CI"
+	git config push.default current
+	if [[ -n "${GITHUB_OAUTH_TOKEN}" ]]; then
+		git remote add https-origin "https://${GITHUB_OAUTH_TOKEN}:x-oauth-basic@github.com/${TRAVIS_REPO_SLUG}" &> /dev/null
+	else
+		git remote add https-origin "https://github.com/${TRAVIS_REPO_SLUG}" &> /dev/null
+	fi
+	REMOTE="https-origin"
+fi
+
+# LATEST
+git ls-remote --tags ${REMOTE_REPO} | awk -F '/' '!/{}/{print $NF}' | grep -v '\(^[0-9]\|-[a-Z]\)' | sort -V | tail -n1 > LATEST
+
+# CURRENT
+ADDED=0
+VERSION=""
+touch VERSIONS
+for x in $(git ls-remote --tags ${REMOTE_REPO} | awk -F '/' '!/{}/{print $NF}' | grep -v '\(^[0-9]\|-[a-Z]\)' | sort -V); do
+	if ! grep -q "^${x}$" VERSIONS; then
+		if [[ ${ADDED} -eq 0 ]]; then
+			echo ${x} >> VERSIONS
+			VERSION="${x}"
+			ADDED=1
+		else
+			break
+		fi
+	fi
+done
+
+# Push to github
+if [[ "${CI}" == "true" && "${TRAVIS}" == "true" ]]; then
+if [[ ${ADDED} -eq 1 ]]; then
+	git add VERSIONS LATEST
+	git commit -m "netbox: ${VERSION}"
+	git push --quiet -u "${REMOTE}" "${BRANCH}"
+fi
+fi

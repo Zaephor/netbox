@@ -1,0 +1,42 @@
+os: linux
+dist: bionic
+language: shell
+services:
+  - docker
+addons:
+  apt:
+    update: true
+    sources:
+      - sourceline: deb [arch=amd64] https://download.docker.com/linux/ubuntu bionic
+          stable
+        key_url: https://download.docker.com/linux/ubuntu/gpg
+    packages:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - qemu-user
+      - jq
+      - git
+before_install:
+  - bash .travis/before_install
+before_script:
+  - bash .travis/before_script
+script:
+  - bash .travis/script
+env:
+  global:
+    - DOCKER_CLI_EXPERIMENTAL=enabled
+    - DOCKER_ORG=draconrose
+stages:
+  - name: build
+    if: type != cron
+  - name: cron
+jobs:
+  include:
+    - stage: cron
+      before_install: bash .travis/cron before_install
+      before_script: bash .travis/cron before_script
+      script: bash .travis/cron script
+    - stage: build
+      env: CONTAINER=netbox
+

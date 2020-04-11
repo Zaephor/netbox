@@ -1,0 +1,7 @@
+#!/usr/bin/with-contenv bash
+
+cd /app
+
+exec \
+	s6-setuidgid abc \
+	python3 netbox/manage.py runserver 0.0.0.0:8000 --insecure 2>&1
