@@ -1,6 +1,7 @@
 #!/bin/bash
 echo "[***] Logging into Docker hub"
 docker login -u "${DOCKER_USER}" -p "${DOCKER_PASSWORD}" &> /dev/null
+#export DOCKER_REPO=index.docker.io/${DOCKER_ORG}/${CONTAINER}
 export DOCKER_REPO=index.docker.io/${DOCKER_ORG}/${CONTAINER}
 export DOCKERFILE_PATH="Dockerfile"
 
@@ -54,6 +55,7 @@ FROM=$(awk '/^FROM/{print $NF}' "${DOCKERFILE_PATH}" | tail -n 1)
 if [[ -n "${THIS_VERSION}" && ("${FROM}" == *'${RELEASE}' || "${FROM}" == *'$RELEASE') ]]; then
 	FROM=$(echo "${FROM}" | sed -e "s@\${RELEASE}@${THIS_VERSION}@g" -e "s@\$RELEASE@${THIS_VERSION}@g")
 fi
+if [[ o -eq 1 ]]; then
 for PLAT in $(docker manifest inspect "${FROM}" | jq -c --raw-output '.manifests[].platform'); do
 	PLAT_OS=$(echo "${PLAT}" | jq -c --raw-output '.os')
 	PLAT_ARCH=$(echo "${PLAT}" | jq -c --raw-output '.architecture')
@@ -66,10 +68,12 @@ for PLAT in $(docker manifest inspect "${FROM}" | jq -c --raw-output '.manifests
 		PLATFORMS+="/${PLAT_VARIANT}"
 	fi
 done
+fi
 if [[ -z "${PLATFORMS}" ]]; then
 	PLATFORMS="linux/amd64"
 fi
 DOCKER_ARGS+=( "--platform" "${PLATFORMS}" )
 DOCKER_ARGS+=( "-f" "${DOCKERFILE_PATH}" "." )
 echo "[***] Starting build"
+echo "[***] DEBUG-ARGS: ${DOCKER_ARGS[@]}"
 docker ${DOCKER_ARGS[@]}
